@@ -12,6 +12,23 @@ struct Shader
 {
     unsigned int programId = 0;
 
+    Shader(unsigned int programId = 0): programId{programId} {}
+
+    Shader(const Shader&) = delete;
+    Shader(Shader&& other)
+    {
+        programId = other.programId;
+        other.programId = 0;
+    }
+
+    Shader& operator=(const Shader&) = delete;
+    Shader& operator=(Shader&& other)
+    {
+        glDeleteProgram(programId);
+        programId = other.programId;
+        other.programId = 0;
+    }
+
     ~Shader()
     {
         glDeleteProgram(programId);
@@ -40,7 +57,7 @@ std::optional<Shader> createShader(
     glCompileShader(vertexShader);
 
     auto fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &(text = vertexShaderSource.c_str()), nullptr);
+    glShaderSource(fragmentShader, 1, &(text = fragmentShaderSource.c_str()), nullptr);
     glCompileShader(fragmentShader);
 
     Shader shader{glCreateProgram()};
