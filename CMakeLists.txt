@@ -1,0 +1,13 @@
+cmake_minimum_required(VERSION 3.9)
+project(sphere-vis)
+
+set(CMAKE_CXX_STANDARD 17)
+
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(PORTAUDIO REQUIRED portaudio-2.0)
+add_subdirectory(3rdparty/glfw)
+add_subdirectory(3rdparty/glad)
+
+add_executable(sphere-vis main.cpp)
+target_include_directories(sphere-vis PRIVATE ${PORTAUDIO_INCLUDE_DIRS})
+target_link_libraries(sphere-vis PRIVATE ${PORTAUDIO_LIBRARIES} glfw glad)
