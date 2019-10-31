@@ -9,5 +9,5 @@ add_subdirectory(3rdparty/glfw)
 add_subdirectory(3rdparty/glad)
 
 add_executable(sphere-vis main.cpp)
-target_include_directories(sphere-vis PRIVATE ${PORTAUDIO_INCLUDE_DIRS})
+target_include_directories(sphere-vis PRIVATE ${PORTAUDIO_INCLUDE_DIRS} include/)
 target_link_libraries(sphere-vis PRIVATE ${PORTAUDIO_LIBRARIES} glfw glad)

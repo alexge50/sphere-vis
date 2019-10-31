@@ -2,6 +2,19 @@
 #include <GLFW/glfw3.h>
 
 #include <iostream>
+#include <fstream>
+
+#include <Shader.h>
+
+std::string loadFile(const char* name)
+{
+    std::ifstream file{name};
+
+    return std::string{
+        std::istreambuf_iterator<char>{file},
+        std::istreambuf_iterator<char>{}
+    };
+}
 
 int main()
 {
@@ -32,6 +45,11 @@ int main()
 
     glfwMakeContextCurrent(window);
     gladLoadGL();
+
+    Shader shader = createShader(
+        loadFile("shaders/vertex.glsl"),
+        loadFile("shaders/fragment.glsl")
+    ).value();
 
     while(!glfwWindowShouldClose(window))
     {
