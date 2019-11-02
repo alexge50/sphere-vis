@@ -13,6 +13,8 @@
 #include <Shader.h>
 #include <Sphere.h>
 
+#include <shaders.h>
+
 std::string loadFile(const char* name)
 {
     std::ifstream file{name};
@@ -58,8 +60,8 @@ int main()
     gladLoadGL();
 
     Shader shader = createShader(
-        loadFile("shaders/vertex.glsl"),
-        loadFile("shaders/fragment.glsl")
+        std::string(reinterpret_cast<const char*>(vertex_glsl)),
+        std::string(reinterpret_cast<const char*>(fragment_glsl))
     ).value();
     const auto mvpLocation = shader.getUniformLocation("mvp");
 
