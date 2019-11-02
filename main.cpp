@@ -2,10 +2,11 @@
 #include <GLFW/glfw3.h>
 
 #include <glm/mat4x4.hpp>
-#include <glm/common.hpp>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+
+#include <portaudio.h>
 
 #include <iostream>
 #include <fstream>
@@ -29,39 +30,14 @@ const float RADIUS = 10.f;
 const int RINGS = 10;
 const int SECTORS = 10;
 
-int main()
+const int SAMPLE_RATE = 44100;
+const int SAMPLES = 256;
+
+int run(GLFWwindow* window)
 {
-    if(!glfwInit())
-    {
-        return -1;
-    }
-
-    glfwSetErrorCallback([](int error, const char* description){
-        std::cout << "error (" << error << "): " << description << std::endl;
-    });
-
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
-
-    GLFWwindow* window = glfwCreateWindow(
-        512,
-        512,
-        "sphere-vis",
-        nullptr,
-        nullptr
-    );
-
-    if(!window)
-    {
-        return -1;
-    }
-
-    glfwMakeContextCurrent(window);
-    gladLoadGL();
-
     Shader shader = createShader(
-        std::string(reinterpret_cast<const char*>(vertex_glsl)),
-        std::string(reinterpret_cast<const char*>(fragment_glsl))
+            std::string(reinterpret_cast<const char*>(vertex_glsl)),
+            std::string(reinterpret_cast<const char*>(fragment_glsl))
     ).value();
     const auto mvpLocation = shader.getUniformLocation("mvp");
 
@@ -74,10 +50,10 @@ int main()
     glGenBuffers(1, &vbo);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(
-        GL_ARRAY_BUFFER,
-        sphere.vertices.size() * sizeof(float),
-        sphere.vertices.data(),
-        GL_DYNAMIC_DRAW
+            GL_ARRAY_BUFFER,
+            sphere.vertices.size() * sizeof(float),
+            sphere.vertices.data(),
+            GL_DYNAMIC_DRAW
     );
 
     glGenBuffers(1, &ebo);
@@ -96,12 +72,12 @@ int main()
 
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(
-        0,
-        3,
-        GL_FLOAT,
-        GL_FALSE,
-        3 * sizeof(float),
-        nullptr
+            0,
+            3,
+            GL_FLOAT,
+            GL_FALSE,
+            3 * sizeof(float),
+            nullptr
     );
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
@@ -139,17 +115,53 @@ int main()
 
         glBindVertexArray(vao);
         glDrawElements(
-            GL_LINE_STRIP,
-            sphere.indices.size(),
-            GL_UNSIGNED_INT,
-            nullptr
+                GL_LINE_STRIP,
+                sphere.indices.size(),
+                GL_UNSIGNED_INT,
+                nullptr
         );
 
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
 
+    return 0;
+}
+
+int main()
+{
+    if(!glfwInit())
+    {
+        return -1;
+    }
+
+    glfwSetErrorCallback([](int error, const char* description){
+        std::cout << "error (" << error << "): " << description << std::endl;
+    });
+
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
+
+    GLFWwindow* window = glfwCreateWindow(
+        512,
+        512,
+        "sphere-vis",
+        nullptr,
+        nullptr
+    );
+
+    if(!window)
+    {
+        return -1;
+    }
+
+    glfwMakeContextCurrent(window);
+    gladLoadGL();
+
+    int error = run(window);
+
     glfwDestroyWindow(window);
     glfwTerminate();
-    return 0;
+
+    return error;
 }
