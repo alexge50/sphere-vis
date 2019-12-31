@@ -10,7 +10,11 @@
 
 #include <iostream>
 #include <fstream>
+#include <numeric>
+#include <algorithm>
 
+#include <fft.h>
+#include <RingBuffer.h>
 #include <Shader.h>
 #include <Sphere.h>
 
@@ -32,6 +36,73 @@ const int SECTORS = 10;
 
 const int SAMPLE_RATE = 44100;
 const int SAMPLES = 256;
+const int SLIDING_WINDOW_SIZE = 8192;
+
+using BufferType = RingBuffer<float, SAMPLE_RATE>;
+
+int audioCallback(
+    const void* inputBuffer,
+    void*,
+    unsigned long framesPerBuffer,
+    const PaStreamCallbackTimeInfo*,
+    PaStreamCallbackFlags,
+    void* data
+)
+{
+    auto* buffer = static_cast<BufferType*>(data);
+    auto in = static_cast<const float*>(inputBuffer);
+
+    for(int i = 0; i < framesPerBuffer; i++)
+    {
+        buffer->push(*in++);
+    }
+
+    return 0;
+}
+
+template<std::size_t N>
+void remap_to_sphere(Sphere& sphere, std::array<float, N> points)
+{
+    int verticesCount = sphere.vertices.size() / 3;
+    struct
+    {
+        int sphere_start, sphere_end;
+        int points_start, points_end;
+    } sections[4] = {
+        {verticesCount / 4, verticesCount / 2, 0, N / 8},
+        {verticesCount / 2, 3 * verticesCount / 4, N / 8, N / 4},
+        {0, verticesCount / 4, N / 4, N / 2},
+        {3 * verticesCount / 4, verticesCount - 1, N / 2, N - 1}
+    };
+
+    for(const auto& section: sections)
+    {
+        const int length =
+            (section.points_end - section.points_start) /
+            (section.sphere_end - section.sphere_start + 1) + 1;
+        int p = section.points_start;
+        for(int i = section.sphere_start; i <= section.sphere_end; i++)
+        {
+            float value = *std::max_element(
+                points.begin() + p,
+                points.begin() + std::min(section.points_end, p + length) + 1
+            );
+            p += length;
+
+            glm::vec3 v{
+                sphere.vertices[i * 3 + 0],
+                sphere.vertices[i * 3 + 1],
+                sphere.vertices[i * 3 + 2],
+            };
+
+            auto displaced = v + value * RADIUS * glm::normalize(v);
+
+            sphere.vertices[i * 3 + 0] = displaced.x;
+            sphere.vertices[i * 3 + 1] = displaced.y;
+            sphere.vertices[i * 3 + 2] = displaced.z;
+        }
+    }
+}
 
 int run(GLFWwindow* window)
 {
@@ -41,7 +112,7 @@ int run(GLFWwindow* window)
     ).value();
     const auto mvpLocation = shader.getUniformLocation("mvp");
 
-    Sphere sphere = generateSphere(RADIUS, RINGS, SECTORS);
+    const Sphere identitySphere = generateSphere(RADIUS, RINGS, SECTORS);
 
     unsigned int vbo = 0;
     unsigned int ebo = 0;
@@ -51,8 +122,8 @@ int run(GLFWwindow* window)
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(
             GL_ARRAY_BUFFER,
-            sphere.vertices.size() * sizeof(float),
-            sphere.vertices.data(),
+            identitySphere.vertices.size() * sizeof(float),
+            identitySphere.vertices.data(),
             GL_DYNAMIC_DRAW
     );
 
@@ -60,8 +131,8 @@ int run(GLFWwindow* window)
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
     glBufferData(
             GL_ELEMENT_ARRAY_BUFFER,
-            sphere.indices.size() * sizeof(int),
-            sphere.indices.data(),
+            identitySphere.indices.size() * sizeof(int),
+            identitySphere.indices.data(),
             GL_STATIC_DRAW
     );
 
@@ -88,6 +159,31 @@ int run(GLFWwindow* window)
 
     glEnable(GL_DEPTH_TEST);
 
+    BufferType buffer;
+    PaStream *stream;
+    if(PaError error = Pa_OpenDefaultStream(
+        &stream,
+        1,
+        0,
+        paFloat32,
+        SAMPLE_RATE,
+        SAMPLES,
+        audioCallback,
+        &buffer
+    ); error != paNoError)
+    {
+        std::cout << "PortAudio error: " << Pa_GetErrorText(error) << std::endl;
+        return -1;
+    }
+
+    if(PaError error = Pa_StartStream(stream); error != paNoError)
+    {
+        std::cout << "PortAudio error: " << Pa_GetErrorText(error) << std::endl;
+        return -1;
+    }
+
+    Sphere sphere = identitySphere;
+
     while(!glfwWindowShouldClose(window))
     {
         int width, height;
@@ -113,6 +209,35 @@ int run(GLFWwindow* window)
         shader.use();
         glUniformMatrix4fv(mvpLocation, 1, 0, glm::value_ptr(mvp));
 
+        if(buffer.size() >= SLIDING_WINDOW_SIZE)
+        {
+            std::array<std::complex<float>, SLIDING_WINDOW_SIZE> x;
+
+            for(int i = 0; i < SLIDING_WINDOW_SIZE; i++)
+                x[i] = buffer[i];
+
+            while(buffer.size() > SLIDING_WINDOW_SIZE)
+                buffer.raw_pop();
+
+            x = fft(x);
+
+            std::array<float, SLIDING_WINDOW_SIZE / 2> frequencies{};
+            for(int i = 0; i < frequencies.size(); i++)
+                frequencies[i] = log10f(1.f / SAMPLE_RATE * std::abs(x[i]) * std::abs(x[i]) + 1.f);
+
+            sphere.vertices = identitySphere.vertices;
+            remap_to_sphere(sphere, frequencies);
+
+            glBindBuffer(GL_ARRAY_BUFFER, vbo);
+            glBufferSubData(
+                GL_ARRAY_BUFFER,
+                0,
+                sphere.vertices.size() * sizeof(float),
+                sphere.vertices.data()
+            );
+        }
+
+
         glBindVertexArray(vao);
         glDrawElements(
                 GL_LINE_STRIP,
@@ -132,6 +257,12 @@ int main()
 {
     if(!glfwInit())
     {
+        return -1;
+    }
+
+    if(PaError error = Pa_Initialize(); error != paNoError)
+    {
+        printf("PortAudio error: %s\n", Pa_GetErrorText(error));
         return -1;
     }
 
@@ -159,6 +290,9 @@ int main()
     gladLoadGL();
 
     int error = run(window);
+
+    if(PaError error = Pa_Terminate(); error != paNoError)
+        std::cout << "PortAudio error: " << Pa_GetErrorText(error) << std::endl;
 
     glfwDestroyWindow(window);
     glfwTerminate();
