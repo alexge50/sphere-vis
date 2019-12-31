@@ -22,11 +22,13 @@ struct Shader
     }
 
     Shader& operator=(const Shader&) = delete;
-    Shader& operator=(Shader&& other)
+    Shader& operator=(Shader&& other) noexcept
     {
         glDeleteProgram(programId);
         programId = other.programId;
         other.programId = 0;
+
+        return *this;
     }
 
     ~Shader()
