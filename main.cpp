@@ -35,8 +35,8 @@ const int RINGS = 10;
 const int SECTORS = 10;
 
 const int SAMPLE_RATE = 44100;
-const int SAMPLES = 256;
-const int SLIDING_WINDOW_SIZE = 8192;
+const int SAMPLES = 32;
+const int SLIDING_WINDOW_SIZE = 16384;
 
 using BufferType = RingBuffer<float, SAMPLE_RATE>;
 
@@ -69,7 +69,7 @@ void remap_to_sphere(Sphere& sphere, std::array<float, N> points)
         int sphere_start, sphere_end;
         int points_start, points_end;
     } sections[4] = {
-        {verticesCount / 4, verticesCount / 2, 0, N / 8},
+        {verticesCount / 4, verticesCount / 2, 1, N / 8},
         {verticesCount / 2, 3 * verticesCount / 4, N / 8, N / 4},
         {0, verticesCount / 4, N / 4, N / 2},
         {3 * verticesCount / 4, verticesCount - 1, N / 2, N - 1}
@@ -223,7 +223,7 @@ int run(GLFWwindow* window)
 
             std::array<float, SLIDING_WINDOW_SIZE / 2> frequencies{};
             for(int i = 0; i < frequencies.size(); i++)
-                frequencies[i] = log10f(1.f / SAMPLE_RATE * std::abs(x[i]) * std::abs(x[i]) + 1.f);
+                frequencies[i] = sinf(std::abs(x[i]) / 100.f);
 
             sphere.vertices = identitySphere.vertices;
             remap_to_sphere(sphere, frequencies);
