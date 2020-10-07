@@ -159,6 +159,20 @@ int run(GLFWwindow* window)
 
     glEnable(GL_DEPTH_TEST);
 
+    int numDevices;
+    numDevices = Pa_GetDeviceCount();
+    if(numDevices == 0)
+    {
+        std::cout << "ERROR: no devices available" << std::endl;
+        return -1;
+    }
+    else if (numDevices < 0)
+    {
+        std::cout << "PortAudio error: " << Pa_GetErrorText(numDevices) << std::endl;
+        return -1;
+    }
+
+
     BufferType buffer;
     PaStream *stream;
     if(PaError error = Pa_OpenDefaultStream(
