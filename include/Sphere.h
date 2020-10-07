@@ -29,7 +29,7 @@ Sphere generateSphere(float radius, int ringCount, int sectorCount)
 
     for(int r = 1; r < ringCount - 1; r++)
     {
-        for(int s = 0; s < sectorCount; s++)
+        for(int s = 0; s < sectorCount - 1; s++)
         {
             float x = radius *
                     cosf(2.f * float(M_PI) * float(s) * sectorStep) *
@@ -62,18 +62,18 @@ Sphere generateSphere(float radius, int ringCount, int sectorCount)
     {
         for(int s = 0; s < sectorCount - 1; s++)
         {
-            sphere.indices.push_back((r - 1) * sectorCount + s + 1);
-            sphere.indices.push_back((r - 1) * sectorCount + s + 2);
-            sphere.indices.push_back(r * sectorCount + s + 2);
-            sphere.indices.push_back(r * sectorCount + s + 1);
+            sphere.indices.push_back((r - 1) * (sectorCount - 1) + s + 1);
+            sphere.indices.push_back((r - 1) * (sectorCount - 1) + s + 2);
+            sphere.indices.push_back(r * (sectorCount - 1) + s + 2);
+            sphere.indices.push_back(r * (sectorCount - 1) + s + 1);
         }
     }
 
     for(int s = 0; s < sectorCount - 1; s++)
     {
-        sphere.indices.push_back((ringCount - 3) * sectorCount + s + 1);
-        sphere.indices.push_back((ringCount - 3) * sectorCount + s + 2);
-        sphere.indices.push_back((ringCount - 2) * sectorCount + 1);
+        sphere.indices.push_back((ringCount - 3) * (sectorCount - 1) + s + 1);
+        sphere.indices.push_back((ringCount - 3) * (sectorCount - 1) + s + 2);
+        sphere.indices.push_back((ringCount - 2) * (sectorCount - 1) + 1);
     }
 
     return sphere;
