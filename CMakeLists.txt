@@ -24,6 +24,7 @@ add_subdirectory(3rdparty/glfw)
 add_subdirectory(3rdparty/glad)
 add_subdirectory(3rdparty/glm)
 add_subdirectory(3rdparty/portaudio)
+add_subdirectory(3rdparty/toml11)
 
 add_library(glm INTERFACE)
 target_include_directories(glm INTERFACE 3rdparty/glm)
@@ -32,4 +33,4 @@ add_resource(shaders shaders/fragment.glsl shaders/vertex.glsl)
 
 add_executable(sphere-vis main.cpp)
 target_include_directories(sphere-vis PRIVATE include/)
-target_link_libraries(sphere-vis PRIVATE portaudio_static glfw glad glm shaders)
+target_link_libraries(sphere-vis PRIVATE portaudio_static glfw glad glm shaders toml11::toml11)

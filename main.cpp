@@ -17,6 +17,7 @@
 #include <RingBuffer.h>
 #include <Shader.h>
 #include <Sphere.h>
+#include <Config.h>
 
 #include <shaders.h>
 
@@ -31,14 +32,11 @@ std::string loadFile(const char* name)
 }
 
 const float RADIUS = 10.f;
-const int RINGS = 10;
-const int SECTORS = 10;
 
-const int SAMPLE_RATE = 44100;
-const int SAMPLES = 32;
+const int RING_BUFFER_SIZE = 96000;
 const int SLIDING_WINDOW_SIZE = 16384;
 
-using BufferType = RingBuffer<float, SAMPLE_RATE>;
+using BufferType = RingBuffer<float, RING_BUFFER_SIZE>;
 
 int audioCallback(
     const void* inputBuffer,
@@ -104,15 +102,16 @@ void remap_to_sphere(Sphere& sphere, std::array<float, N> points)
     }
 }
 
-int run(GLFWwindow* window)
+int run(GLFWwindow* window, Config config)
 {
     Shader shader = createShader(
             std::string(reinterpret_cast<const char*>(vertex_glsl)),
             std::string(reinterpret_cast<const char*>(fragment_glsl))
     ).value();
     const auto mvpLocation = shader.getUniformLocation("mvp");
+    const auto colorLocation = shader.getUniformLocation("color");
 
-    const Sphere identitySphere = generateSphere(RADIUS, RINGS, SECTORS);
+    const Sphere identitySphere = generateSphere(RADIUS, config.sphere_rings, config.sphere_sectors);
 
     unsigned int vbo = 0;
     unsigned int ebo = 0;
@@ -180,8 +179,8 @@ int run(GLFWwindow* window)
         1,
         0,
         paFloat32,
-        SAMPLE_RATE,
-        SAMPLES,
+        config.audio_sample_rate,
+        config.audio_frames_per_buffer,
         audioCallback,
         &buffer
     ); error != paNoError)
@@ -206,7 +205,7 @@ int run(GLFWwindow* window)
         glfwGetFramebufferSize(window, &width, &height);
         ratio = float(width) / float(height);
         glViewport(0, 0, width, height);
-        glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
+        glClearColor(config.color_background.r, config.color_background.g, config.color_background.b, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         auto mvp = glm::perspective(
@@ -222,13 +221,14 @@ int run(GLFWwindow* window)
 
         shader.use();
         glUniformMatrix4fv(mvpLocation, 1, 0, glm::value_ptr(mvp));
+        glUniform3f(colorLocation, config.color_foreground.r, config.color_foreground.g, config.color_foreground.b);
 
         if(buffer.size() >= SLIDING_WINDOW_SIZE)
         {
             std::array<std::complex<float>, SLIDING_WINDOW_SIZE> x;
 
             for(int i = 0; i < SLIDING_WINDOW_SIZE; i++)
-                x[i] = buffer[i];
+                x[i] = buffer[i] * config.audio_amplify;
 
             while(buffer.size() > SLIDING_WINDOW_SIZE)
                 buffer.raw_pop();
@@ -267,8 +267,23 @@ int run(GLFWwindow* window)
     return 0;
 }
 
-int main()
+int main(int argv, char* argc[])
 {
+    std::variant<Config, Error> config_wrapped = [&]{
+        if(argv == 1)
+            return parse_config(nullptr);
+
+        return parse_config(argc[1]);
+    }();
+
+    if(std::holds_alternative<Error>(config_wrapped))
+    {
+        std::cout << "Error: " << std::get<Error>(config_wrapped).message << std::endl;
+        return -1;
+    }
+
+    Config config = std::get<Config>(config_wrapped);
+
     if(!glfwInit())
     {
         return -1;
@@ -303,7 +318,7 @@ int main()
     glfwMakeContextCurrent(window);
     gladLoadGL();
 
-    int error = run(window);
+    int error = run(window, config);
 
     if(PaError error = Pa_Terminate(); error != paNoError)
         std::cout << "PortAudio error: " << Pa_GetErrorText(error) << std::endl;

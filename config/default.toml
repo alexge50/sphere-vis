@@ -1,0 +1,12 @@
+[audio]
+sample_rate=44100
+frames_per_buffer=128
+amplify=1.0
+
+[sphere]
+rings=10
+sectors=10
+
+[colors]
+background=[0, 0, 0]
+foreground=[153, 50, 204]

@@ -7,3 +7,6 @@
 [submodule "3rdparty/portaudio"]
 	path = 3rdparty/portaudio
 	url = https://git.assembla.com/portaudio.git
+[submodule "3rdparty/toml11"]
+	path = 3rdparty/toml11
+	url = https://github.com/ToruNiina/toml11
